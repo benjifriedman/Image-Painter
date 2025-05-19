@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<title>Image Painter</title>
+		<style>
+			:root {
+				--bg: #181a20;
+				--panel: #23262f;
+				--accent: #fff;
+				--text: #f1f1f1;
+				--button: #23262f;
+				--button-hover: #00c3ff;
+				--button-text: #f1f1f1;
+				--border: #444;
+				--canvas-border: #00c3ff;
+				--selection: #ff3c3c;
+			}
+			html,
+			body {
+				height: 100%;
+				margin: 0;
+				padding: 0;
+			}
+			body {
+				min-height: 100vh;
+				background: var(--bg);
+				color: var(--text);
+				font-family: 'Segoe UI', Arial, sans-serif;
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				justify-content: center;
+			}
+			h1 {
+				color: var(--accent);
+				margin-top: 32px;
+				margin-bottom: 8px;
+				text-align: center;
+			}
+			.instructions {
+				margin-bottom: 18px;
+				color: #b0b8c1;
+				font-size: 1.08em;
+				text-align: center;
+				max-width: 600px;
+			}
+			#controls {
+				margin-bottom: 18px;
+				display: flex;
+				justify-content: center;
+				gap: 12px;
+			}
+			button,
+			input[type='file'] {
+				background: var(--button);
+				color: var(--button-text);
+				font-size: 1em;
+				padding: 7px 16px;
+				transition: background 0.2s, border 0.2s;
+				cursor: pointer;
+			}
+			button:disabled {
+				opacity: 0.5;
+				cursor: not-allowed;
+			}
+			/* button:not(:disabled):hover,
+			input[type='file']:hover {
+				background: var(--button-hover);
+				color: #181a20;
+				border-color: var(--accent);
+			} */
+			.container {
+				display: flex;
+				justify-content: center;
+				align-items: center;
+				gap: 48px;
+				width: 100vw;
+				height: 70vh;
+				min-height: 400px;
+				max-height: 80vh;
+			}
+			.canvas-container {
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				/* background: var(--panel); */
+				/* padding: 18px 24px; */
+				/* box-shadow: 0 4px 32px #0004; */
+				min-width: 320px;
+				min-height: 320px;
+				max-width: 90vw;
+				max-height: 90vh;
+			}
+			.label {
+				font-weight: bold;
+				margin-bottom: 8px;
+				color: var(--accent);
+				font-size: 1.1em;
+				letter-spacing: 0.5px;
+			}
+			canvas {
+				/* border: 2.5px solid var(--canvas-border); */
+				background: #222;
+				margin-bottom: 8px;
+				box-shadow: 0 2px 12px #0006;
+				max-width: 40vw;
+				max-height: 60vh;
+				width: 100%;
+				height: auto;
+				display: block;
+				transition: border 0.2s;
+			}
+			@media (max-width: 900px) {
+				.container {
+					flex-direction: column;
+					gap: 24px;
+					height: auto;
+				}
+				.canvas-container {
+					min-width: 0;
+					width: 98vw;
+					max-width: 98vw;
+				}
+				canvas {
+					max-width: 90vw;
+					max-height: 40vh;
+				}
+			}
+		</style>
+	</head>
+	<body>
+		<h1>Image Painter</h1>
+		<div class="instructions">
+			1. Upload an image (JPG or PNG).<br />
+			2. Drag to select a region on the left canvas.<br />
+			3. Drag or click on the right canvas to paint the selected region.<br />
+			4. You can select new regions as many times as you want.<br />
+			5. Use the buttons to clear or save your painted canvas.
+		</div>
+		<div id="controls">
+			<input type="file" id="imageLoader" accept="image/jpeg,image/png" />
+			<button id="clearPainted" disabled>Clear Painted Canvas</button>
+			<button id="savePainted" disabled>Save</button>
+			<label style="margin-left: 16px; color: var(--text)"
+				>BG
+				<input
+					type="color"
+					id="bgColorPicker"
+					value="#ffffff"
+					style="vertical-align: middle; width: 32px; height: 32px; border: none; background: none"
+				/>
+			</label>
+			<label style="margin-left: 12px; color: var(--text)"
+				>Selection
+				<input
+					type="color"
+					id="selColorPicker"
+					value="#ff0000"
+					style="vertical-align: middle; width: 32px; height: 32px; border: none; background: none"
+				/>
+			</label>
+			<label style="margin-left: 12px; color: var(--text)"
+				>Stroke
+				<input type="number" id="selStrokeWidth" min="1" max="50" value="10" style="width: 48px" />
+			</label>
+			<label style="margin-left: 12px; color: var(--text)"
+				>Brush
+				<select id="brushShape" style="font-size: 1em; padding: 3px 8px; border-radius: 4px">
+					<option value="rect">Rectangle</option>
+					<option value="circle">Circle</option>
+					<option value="ellipse">Ellipse</option>
+				</select>
+			</label>
+		</div>
+		<div class="container">
+			<div class="canvas-container">
+				<div class="label">Original Image</div>
+				<canvas id="imageCanvas"></canvas>
+			</div>
+			<div class="canvas-container">
+				<div class="label">Painted Canvas</div>
+				<canvas id="paintingCanvas"></canvas>
+			</div>
+		</div>
+		<script>
+			const imageLoader = document.getElementById('imageLoader');
+			const imageCanvas = document.getElementById('imageCanvas');
+			const paintingCanvas = document.getElementById('paintingCanvas');
+			const imageCtx = imageCanvas.getContext('2d');
+			const paintingCtx = paintingCanvas.getContext('2d');
+			const clearPaintedBtn = document.getElementById('clearPainted');
+			const savePaintedBtn = document.getElementById('savePainted');
+			const bgColorPicker = document.getElementById('bgColorPicker');
+			const selColorPicker = document.getElementById('selColorPicker');
+			const selStrokeWidth = document.getElementById('selStrokeWidth');
+			const brushShape = document.getElementById('brushShape');
+			let paintedBgColor = '#fff';
+			let selectionColor = '#ff0000';
+			let selectionStroke = 10;
+			let currentBrushShape = 'rect';
+			let lastUploadedType = 'image/png'; // default
+
+			let img = new Image();
+			let imageLoaded = false;
+			let selecting = false;
+			let selection = null; // {x, y, w, h}
+			let selectStart = null;
+
+			let painting = false;
+			let mouseOverPaintingCanvas = false;
+
+			// --- Image Upload ---
+			imageLoader.addEventListener('change', function (e) {
+				const file = e.target.files[0];
+				if (!file || !(file.type.match('image/jpeg') || file.type.match('image/png'))) {
+					alert('Please select a JPG or PNG image.');
+					return;
+				}
+				lastUploadedType = file.type; // <-- Track the type
+				const reader = new FileReader();
+				reader.onload = function (event) {
+					img.onload = function () {
+						imageCanvas.width = img.width;
+						imageCanvas.height = img.height;
+						paintingCanvas.width = img.width;
+						paintingCanvas.height = img.height;
+						imageCtx.drawImage(img, 0, 0);
+						// Fill painted canvas with background color
+						paintingCtx.save();
+						paintingCtx.setTransform(1, 0, 0, 1, 0, 0);
+						paintingCtx.globalAlpha = 1;
+						paintingCtx.fillStyle = paintedBgColor;
+						paintingCtx.fillRect(0, 0, paintingCanvas.width, paintingCanvas.height);
+						paintingCtx.restore();
+						imageLoaded = true;
+						clearPaintedBtn.disabled = false;
+						savePaintedBtn.disabled = false;
+						selection = null;
+					};
+					img.src = event.target.result;
+				};
+				reader.readAsDataURL(file);
+			});
+
+			// --- Background color picker ---
+			bgColorPicker.addEventListener('input', function () {
+				paintedBgColor = bgColorPicker.value;
+				// Save current painted image
+				const imgData = paintingCtx.getImageData(0, 0, paintingCanvas.width, paintingCanvas.height);
+				// Fill with new bg color
+				paintingCtx.save();
+				paintingCtx.setTransform(1, 0, 0, 1, 0, 0);
+				paintingCtx.globalAlpha = 1;
+				paintingCtx.fillStyle = paintedBgColor;
+				paintingCtx.fillRect(0, 0, paintingCanvas.width, paintingCanvas.height);
+				paintingCtx.restore();
+				// Draw previous painting on top (excluding old bg)
+				paintingCtx.putImageData(imgData, 0, 0);
+			});
+
+			// --- Selection color picker ---
+			selColorPicker.addEventListener('input', function () {
+				selectionColor = selColorPicker.value;
+			});
+
+			// --- Selection stroke width ---
+			selStrokeWidth.addEventListener('input', function () {
+				selectionStroke = parseInt(selStrokeWidth.value, 10) || 1;
+			});
+
+			// --- Selection on Image Canvas ---
+			imageCanvas.addEventListener('mousedown', function (e) {
+				if (!imageLoaded) return;
+				selecting = true;
+				const rect = imageCanvas.getBoundingClientRect();
+				selectStart = {
+					x: Math.floor((e.clientX - rect.left) * (imageCanvas.width / rect.width)),
+					y: Math.floor((e.clientY - rect.top) * (imageCanvas.height / rect.height))
+				};
+				selection = null;
+			});
+
+			imageCanvas.addEventListener('mousemove', function (e) {
+				if (!imageLoaded) return;
+				imageCtx.clearRect(0, 0, imageCanvas.width, imageCanvas.height);
+				imageCtx.drawImage(img, 0, 0);
+				if (selecting && selectStart) {
+					const rect = imageCanvas.getBoundingClientRect();
+					const curr = {
+						x: Math.floor((e.clientX - rect.left) * (imageCanvas.width / rect.width)),
+						y: Math.floor((e.clientY - rect.top) * (imageCanvas.height / rect.height))
+					};
+					const x = Math.min(selectStart.x, curr.x);
+					const y = Math.min(selectStart.y, curr.y);
+					const w = Math.abs(curr.x - selectStart.x);
+					const h = Math.abs(curr.y - selectStart.y);
+					if (w > 0 && h > 0) {
+						imageCtx.strokeStyle = selectionColor;
+						imageCtx.lineWidth = selectionStroke;
+						imageCtx.setLineDash([]);
+						imageCtx.strokeRect(x, y, w, h);
+					}
+				} else if (selection) {
+					// Draw last selection
+					imageCtx.strokeStyle = selectionColor;
+					imageCtx.lineWidth = selectionStroke;
+					imageCtx.setLineDash([]);
+					imageCtx.strokeRect(selection.x, selection.y, selection.w, selection.h);
+				}
+			});
+
+			imageCanvas.addEventListener('mouseup', function (e) {
+				if (!imageLoaded || !selecting) return;
+				selecting = false;
+				const rect = imageCanvas.getBoundingClientRect();
+				const end = {
+					x: Math.floor((e.clientX - rect.left) * (imageCanvas.width / rect.width)),
+					y: Math.floor((e.clientY - rect.top) * (imageCanvas.height / rect.height))
+				};
+				const x = Math.min(selectStart.x, end.x);
+				const y = Math.min(selectStart.y, end.y);
+				const w = Math.abs(end.x - selectStart.x);
+				const h = Math.abs(end.y - selectStart.y);
+				if (w > 0 && h > 0) {
+					selection = { x, y, w, h };
+				} else {
+					selection = null;
+				}
+				imageCtx.clearRect(0, 0, imageCanvas.width, imageCanvas.height);
+				imageCtx.drawImage(img, 0, 0);
+				if (selection) {
+					imageCtx.strokeStyle = selectionColor;
+					imageCtx.lineWidth = selectionStroke;
+					imageCtx.setLineDash([]);
+					imageCtx.strokeRect(selection.x, selection.y, selection.w, selection.h);
+				}
+			});
+
+			imageCanvas.addEventListener('mouseleave', function () {
+				if (!imageLoaded) return;
+				if (selecting) {
+					selecting = false;
+					imageCtx.clearRect(0, 0, imageCanvas.width, imageCanvas.height);
+					imageCtx.drawImage(img, 0, 0);
+					if (selection) {
+						imageCtx.strokeStyle = selectionColor;
+						imageCtx.lineWidth = selectionStroke;
+						imageCtx.setLineDash([]);
+						imageCtx.strokeRect(selection.x, selection.y, selection.w, selection.h);
+					}
+				}
+			});
+
+			// --- Painting on Painted Canvas (drag to paint) ---
+			function paintAt(px, py) {
+				if (!imageLoaded || !selection) return;
+				const dx = px - Math.floor(selection.w / 2);
+				const dy = py - Math.floor(selection.h / 2);
+				paintingCtx.save();
+				if (currentBrushShape === 'circle') {
+					const r = Math.min(selection.w, selection.h) / 2;
+					paintingCtx.beginPath();
+					paintingCtx.arc(px, py, r, 0, 2 * Math.PI);
+					paintingCtx.closePath();
+					paintingCtx.clip();
+					paintingCtx.drawImage(img, selection.x, selection.y, selection.w, selection.h, dx, dy, selection.w, selection.h);
+				} else if (currentBrushShape === 'ellipse') {
+					paintingCtx.beginPath();
+					paintingCtx.ellipse(px, py, selection.w / 2, selection.h / 2, 0, 0, 2 * Math.PI);
+					paintingCtx.closePath();
+					paintingCtx.clip();
+					paintingCtx.drawImage(img, selection.x, selection.y, selection.w, selection.h, dx, dy, selection.w, selection.h);
+				} else {
+					paintingCtx.drawImage(img, selection.x, selection.y, selection.w, selection.h, dx, dy, selection.w, selection.h);
+				}
+				paintingCtx.restore();
+			}
+
+			paintingCanvas.addEventListener('mousedown', function (e) {
+				if (!imageLoaded || !selection) return;
+				painting = true;
+				mouseOverPaintingCanvas = true;
+				const rect = paintingCanvas.getBoundingClientRect();
+				const px = Math.floor((e.clientX - rect.left) * (paintingCanvas.width / rect.width));
+				const py = Math.floor((e.clientY - rect.top) * (paintingCanvas.height / rect.height));
+				paintAt(px, py);
+			});
+
+			paintingCanvas.addEventListener('mouseenter', function () {
+				mouseOverPaintingCanvas = true;
+			});
+
+			paintingCanvas.addEventListener('mouseleave', function () {
+				mouseOverPaintingCanvas = false;
+			});
+
+			window.addEventListener('mousemove', function (e) {
+				if (!painting || !mouseOverPaintingCanvas) return;
+				const rect = paintingCanvas.getBoundingClientRect();
+				// Only paint if mouse is over the canvas
+				if (e.clientX >= rect.left && e.clientX <= rect.right && e.clientY >= rect.top && e.clientY <= rect.bottom) {
+					const px = Math.floor((e.clientX - rect.left) * (paintingCanvas.width / rect.width));
+					const py = Math.floor((e.clientY - rect.top) * (paintingCanvas.height / rect.height));
+					paintAt(px, py);
+				}
+			});
+
+			window.addEventListener('mouseup', function () {
+				painting = false;
+			});
+
+			// --- Clear and Save ---
+			clearPaintedBtn.addEventListener('click', function () {
+				paintingCtx.save();
+				paintingCtx.setTransform(1, 0, 0, 1, 0, 0);
+				paintingCtx.globalAlpha = 1;
+				paintingCtx.fillStyle = paintedBgColor;
+				paintingCtx.fillRect(0, 0, paintingCanvas.width, paintingCanvas.height);
+				paintingCtx.restore();
+			});
+
+			savePaintedBtn.addEventListener('click', function () {
+				const link = document.createElement('a');
+				const now = new Date();
+				const pad = n => n.toString().padStart(2, '0');
+				const timestamp = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(
+					now.getSeconds()
+				)}`;
+				if (lastUploadedType === 'image/jpeg') {
+					link.download = `painted-canvas-${timestamp}.jpg`;
+					link.href = paintingCanvas.toDataURL('image/jpeg', 0.95);
+				} else {
+					link.download = `painted-canvas-${timestamp}.png`;
+					link.href = paintingCanvas.toDataURL('image/png');
+				}
+				link.click();
+			});
+
+			brushShape.addEventListener('change', function () {
+				currentBrushShape = brushShape.value;
+			});
+		</script>
+	</body>
+</html>
