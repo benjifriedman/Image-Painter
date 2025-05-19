@@ -3,6 +3,8 @@
 A modern, browser-based tool for creative image manipulation.  
 **Select, paint, and remix images with custom brushes and export your results!**
 
+Live instance at [https://benjifriedman.github.io/Image-Painter/](https://benjifriedman.github.io/Image-Painter/)
+
 ---
 
 ## Features
