@@ -5,6 +5,8 @@ A modern, browser-based tool for creative image manipulation.
 
 Live instance at [https://benjifriedman.github.io/Image-Painter/](https://benjifriedman.github.io/Image-Painter/)
 
+![Preview of the app](https://github.com/benjifriedman/Image-Painter/blob/main/image-painter.jpg?raw=true)
+
 ---
 
 ## Features
