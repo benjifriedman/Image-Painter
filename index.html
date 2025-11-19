@@ -721,20 +721,41 @@
 			});
 
 			savePaintedBtn.addEventListener('click', function () {
-				const link = document.createElement('a');
 				const now = new Date();
 				const pad = n => n.toString().padStart(2, '0');
-				const timestamp = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(
-					now.getSeconds()
-				)}`;
+				const timestamp = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(
+					now.getMinutes()
+				)}${pad(now.getSeconds())}`;
+			
+				// Decide format
+				let mime, ext;
 				if (lastUploadedType === 'image/jpeg') {
-					link.download = `painted-canvas-${timestamp}.jpg`;
-					link.href = paintingCanvas.toDataURL('image/jpeg', 0.95);
+					mime = 'image/jpeg';
+					ext = 'jpg';
 				} else {
-					link.download = `painted-canvas-${timestamp}.png`;
-					link.href = paintingCanvas.toDataURL('image/png');
+					mime = 'image/png';
+					ext = 'png';
 				}
+			
+				const dataUrl = paintingCanvas.toDataURL(mime);
+			
+				// Create a temporary link element
+				const link = document.createElement('a');
+				link.download = `painted-canvas-${timestamp}.${ext}`;
+				link.href = dataUrl;
+			
+				// iOS Safari / Chrome on iOS often ignore download; target=_blank
+				// at least opens the image so user can long-press to save.
+				link.target = '_blank';
+			
+				// Append to DOM to increase compatibility on iOS
+				document.body.appendChild(link);
+			
+				// Trigger click in direct response to user gesture
 				link.click();
+			
+				// Cleanup
+				document.body.removeChild(link);
 			});
 
 			brushShape.addEventListener('change', function () {
