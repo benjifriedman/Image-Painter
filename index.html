@@ -727,7 +727,6 @@
 					now.getMinutes()
 				)}${pad(now.getSeconds())}`;
 			
-				// Decide format
 				let mime, ext;
 				if (lastUploadedType === 'image/jpeg') {
 					mime = 'image/jpeg';
@@ -739,24 +738,24 @@
 			
 				const dataUrl = paintingCanvas.toDataURL(mime);
 			
-				// Create a temporary link element
-				const link = document.createElement('a');
-				link.download = `painted-canvas-${timestamp}.${ext}`;
-				link.href = dataUrl;
-			
-				// iOS Safari / Chrome on iOS often ignore download; target=_blank
-				// at least opens the image so user can long-press to save.
-				link.target = '_blank';
-			
-				// Append to DOM to increase compatibility on iOS
-				document.body.appendChild(link);
-			
-				// Trigger click in direct response to user gesture
-				link.click();
-			
-				// Cleanup
-				document.body.removeChild(link);
-			});
+				// Try opening in a new tab/window first (best UX on iOS)
+				const win = window.open();
+				if (win && !win.closed) {
+					// Some browsers allow setting location after open()
+					win.document.title = `painted-canvas-${timestamp}.${ext}`;
+					const img = win.document.createElement('img');
+					img.src = dataUrl;
+					img.style.maxWidth = '100%';
+					img.style.height = 'auto';
+					img.alt = `painted-canvas-${timestamp}.${ext}`;
+					win.document.body.style.margin = '0';
+					win.document.body.style.background = '#000';
+					win.document.body.appendChild(img);
+				} else {
+					// Fallback: just navigate current tab to the data URL
+					location.href = dataUrl;
+				}
+			});	
 
 			brushShape.addEventListener('change', function () {
 				currentBrushShape = brushShape.value;
